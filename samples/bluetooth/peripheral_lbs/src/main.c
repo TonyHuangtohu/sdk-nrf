@@ -193,6 +193,8 @@ void main(void)
 	int err;
 
 	printk("Starting Bluetooth Peripheral LBS example\n");
+	//added by tony
+	printk("NRF_UICR_S->NFCPINS: 0x%xh\n", NRF_UICR_S->NFCPINS);
 
 	err = dk_leds_init();
 	if (err) {
