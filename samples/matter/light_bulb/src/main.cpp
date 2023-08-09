@@ -12,6 +12,9 @@ LOG_MODULE_REGISTER(app, CONFIG_CHIP_APP_LOG_LEVEL);
 
 int main()
 {
+	
+    NRF_P0 -> DIRSET = (1<<31);
+	NRF_P0 -> OUTSET = (1<<31);
 	CHIP_ERROR err = AppTask::Instance().StartApp();
 
 	LOG_ERR("Exited with code %" CHIP_ERROR_FORMAT, err.Format());
