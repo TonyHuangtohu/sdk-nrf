@@ -38,6 +38,8 @@ manifest:
     - name: babblesim
       url-base: https://github.com/BabbleSim
 
+    - name: fork_zephyr
+      url-base: https://github.com/TonyHuangtohu
   # If not otherwise specified, the projects below should be obtained
   # from the ncs remote.
   defaults:
@@ -58,8 +60,9 @@ manifest:
     # https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/zephyr/introduction/index.html
     # https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/zephyr/guides/modules.html
     - name: zephyr
-      repo-path: sdk-zephyr
-      revision: v3.3.99-ncs1-1
+      repo-path: sdk-zephyr/tree/k_relloc
+      revision: 8fb0b06502bcceaa43bedd01124098d57151f1e4
+      remote: fork_zephyr 
       import:
         # In addition to the zephyr repository itself, NCS also
         # imports the contents of zephyr/west.yml at the above
