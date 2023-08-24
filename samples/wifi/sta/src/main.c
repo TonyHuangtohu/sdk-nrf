@@ -280,6 +280,93 @@ int bytes_from_str(const char *str, uint8_t *bytes, size_t bytes_len)
 	return 0;
 }
 
+#if 0
+
+#include <zephyr/init.h>
+#include <zephyr/sys/math_extras.h>
+#include <zephyr/sys/mutex.h>
+#include <zephyr/sys/sys_heap.h>
+
+void * malloc (size_t size) ;
+void * calloc(size_t num, size_t size) ;
+void * realloc(void * mem, size_t size) ;
+void free(void * mem) ;
+
+const size_t kMallocAlignment = sizeof(int32_t);
+uint8_t sHeapMemory[28 * 1024] __aligned(sizeof(int32_t));
+struct  sys_heap sHeap;
+//SYS_MUTEX_DEFINE(sLock);
+
+void * malloc (size_t size)
+{
+    return sys_heap_aligned_alloc(&sHeap, kMallocAlignment, size);
+}
+
+void * calloc(size_t num, size_t size) 
+{
+	size_t totalSize;
+
+    if (size_mul_overflow(num, size, &totalSize))
+    {
+        return NULL;
+    }
+
+    void * mem = malloc(totalSize);
+
+    if (mem)
+    {
+        memset(mem, 0, totalSize);
+    }
+
+    return mem;
+    
+}
+
+void * realloc(void * mem, size_t size) 
+{
+    return sys_heap_aligned_realloc(&sHeap, mem, kMallocAlignment, size);
+}
+
+void free(void * mem)
+{
+    sys_heap_free(&sHeap, mem);
+}
+
+int initHeap(void)
+{
+    sys_heap_init(&sHeap, sHeapMemory, sizeof(sHeapMemory));
+    return 0;
+}
+
+SYS_INIT(initHeap, POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
+
+#endif
+
+#if 1
+
+void * malloc (size_t size)
+{
+    //return sys_heap_aligned_alloc(&sHeap, kMallocAlignment, size);
+	return k_malloc(size);
+}
+
+void * calloc(size_t num, size_t size) 
+{
+    return k_calloc(num, size);
+}
+
+void * realloc(void * mem, size_t size) 
+{
+   return k_realloc(mem, size);
+}
+
+void free(void * mem)
+{
+    k_free(mem);
+}
+
+#endif
+
 int main(void)
 {
 	int i;
