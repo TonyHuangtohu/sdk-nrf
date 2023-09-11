@@ -37,6 +37,8 @@ manifest:
       url-base: https://github.com/ant-nrfconnect
     - name: babblesim
       url-base: https://github.com/BabbleSim
+    - name: fork_mcuboot
+      url-base: https://github.com/TonyHuangtohu/sdk-mcuboot
 
   # If not otherwise specified, the projects below should be obtained
   # from the ncs remote.
@@ -117,9 +119,10 @@ manifest:
           upstream-sha: e792f38db8471f35ee94f109a4093dece8f78c6a
           compare-by-default: false
     - name: mcuboot
-      repo-path: sdk-mcuboot
-      revision: v1.10.0-ncs1
+      repo-path: sdk-mcuboot/tree/clear_p1_31
+      revision: 6308e13dfe50e678615faceb468f90753b490b5f
       path: bootloader/mcuboot
+      remote: fork_mcuboot
     - name: qcbor
       url: https://github.com/laurencelundblade/QCBOR.git
       revision: b0e7033268e88c9f27146fa9a1415ef4c19ebaff
