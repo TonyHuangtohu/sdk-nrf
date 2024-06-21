@@ -158,7 +158,7 @@ choice TRUSTED_STORAGE_STORAGE_BACKEND
 
 config TRUSTED_STORAGE_STORAGE_BACKEND_SETTINGS
 	bool "Settings storage backend"
-	depends on SETTINGS_NVS
+#	depends on SETTINGS_NVS
 	help
 	  Use the Settings subsystem with NVS to store the assets
 

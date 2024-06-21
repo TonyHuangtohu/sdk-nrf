@@ -43,6 +43,7 @@ target_sources(app PRIVATE
     src/app_task.cpp
     src/bolt_lock_manager.cpp
     src/main.cpp
+	src/uart_thread.c
     src/zcl_callbacks.cpp
 )
 
