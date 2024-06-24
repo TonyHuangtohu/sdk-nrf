@@ -60,8 +60,9 @@ manifest:
     # https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/zephyr/introduction/index.html
     # https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/zephyr/guides/modules.html
     - name: zephyr
-      repo-path: sdk-zephyr
-      revision: v3.5.99-ncs1-1
+      repo-path: sdk-zephyr/tree/settings_doorlock_settingarea_spi
+      revision: c36c8d5ff727992ec2cbd4f97b820ad0939e9917
+      remote: fork_zephyr 
       import:
         # In addition to the zephyr repository itself, NCS also
         # imports the contents of zephyr/west.yml at the above
