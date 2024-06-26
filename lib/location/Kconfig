@@ -72,6 +72,14 @@ config LOCATION_METHOD_GNSS_PRIORITIZE_QZSS_ASSISTANCE
 	  needed at the same time. Enabling this option allows A-GNSS data request to be sent also
 	  when only QZSS assistance data (usually ephemerides) is needed.
 
+config LOCATION_METHOD_GNSS_ASSISTANCE_REFERENCE_ALT
+       int "Reference altitude for 3-sat first fix in meters"
+       range -32767 32767
+       default -32767
+       help
+         Reference altitude for 3-sat first fix in meters above the reference ellipsoid surface.
+         The default value -32767 implies that reference altitude is not injected.
+
 endif # LOCATION_METHOD_GNSS
 
 if LOCATION_METHOD_WIFI

@@ -264,6 +264,74 @@ static void method_gnss_nrf_cloud_agnss_request(void)
 }
 
 #elif defined(CONFIG_NRF_CLOUD_REST) || defined(CONFIG_NRF_CLOUD_COAP)
+
+#include "mcc_location_table.h"
+#define PLMN_STR_MAX_LEN	8 /* MCC + MNC + quotes */
+
+static void location_inject(void)
+{
+	int err;
+	char plmn_str[PLMN_STR_MAX_LEN + 1];
+	uint16_t mcc;
+	const struct mcc_table *mcc_info;
+	struct nrf_modem_gnss_agnss_data_location location = { 0 };
+
+	/* Read PLMN string from modem to get the MCC. */
+	err = nrf_modem_at_scanf(
+		"AT%XMONITOR",
+		"%%XMONITOR: "
+		"%*d"                                  /* <reg_status>: ignored */
+		",%*[^,]"                              /* <full_name>: ignored */
+		",%*[^,]"                              /* <short_name>: ignored */
+		",%"STRINGIFY(PLMN_STR_MAX_LEN)"[^,]", /* <plmn> */
+		plmn_str);
+	if (err != 1) {
+		LOG_WRN("Couldn't read PLMN from modem, location assistance unavailable");
+		return;
+	}
+
+	/* NULL terminate MCC and read it. */
+	plmn_str[4] = '\0';
+	mcc = strtol(plmn_str + 1, NULL, 10);
+
+	mcc_info = mcc_lookup(mcc);
+	if (mcc_info == NULL) {
+		LOG_WRN("No location found for MCC %u", mcc);
+		return;
+	}
+
+	location.latitude = lat_convert(mcc_info->lat);
+	location.longitude = lon_convert(mcc_info->lon);
+	location.unc_semimajor = mcc_info->unc_semimajor;
+	location.unc_semiminor = mcc_info->unc_semiminor;
+	location.orientation_major = mcc_info->orientation;
+	location.confidence = mcc_info->confidence;
+
+	if (CONFIG_LOCATION_METHOD_GNSS_ASSISTANCE_REFERENCE_ALT != -32767) {
+		/* Use reference altitude to enable 3-sat first fix. */
+		LOG_INF("Using reference altitude %d meters",
+			CONFIG_LOCATION_METHOD_GNSS_ASSISTANCE_REFERENCE_ALT);
+		location.altitude = CONFIG_LOCATION_METHOD_GNSS_ASSISTANCE_REFERENCE_ALT;
+		/* The altitude uncertainty has to be less than 100 meters (coded number K has to
+		 * be less than 48) for the altitude to be used for a 3-sat fix. GNSS increases
+		 * the uncertainty depending on the age of the altitude and whether the device is
+		 * stationary or moving. The uncertainty is set to 0 (meaning 0 meters), so that
+		 * it remains usable for a 3-sat fix for as long as possible.
+		 */
+		location.unc_altitude = 0;
+	} else {
+		location.unc_altitude = 255; /* altitude not used */
+	}
+
+	err = nrf_modem_gnss_agnss_write(&location, sizeof(location), NRF_MODEM_GNSS_AGNSS_LOCATION);
+	if (err) {
+		LOG_ERR("Failed to inject location for MCC %u, error %d", mcc, err);
+		return;
+	}
+
+	LOG_INF("Injected location for MCC %u", mcc);
+}
+
 static void method_gnss_nrf_cloud_agnss_request(void)
 {
 	int err;
@@ -293,6 +361,13 @@ static void method_gnss_nrf_cloud_agnss_request(void)
 		false,
 		0
 	};
+
+	if (gnss_config.accuracy == LOCATION_ACCURACY_LOW &&
+	    agnss_request.data_flags & NRF_MODEM_GNSS_AGNSS_POSITION_REQUEST) {
+		location_inject();
+		agnss_request.data_flags -= NRF_MODEM_GNSS_AGNSS_POSITION_REQUEST;
+		LOG_INF("Adjusted A-GPS request (flags: 0x%02x)", agnss_request.data_flags);
+	}
 
 	struct lte_lc_cells_info net_info = {0};
 	struct lte_lc_cells_info *scan_results;
@@ -848,10 +923,13 @@ static uint8_t method_gnss_tracked_satellites_nonzero_cn0(
 
 static void method_gnss_print_pvt(const struct nrf_modem_gnss_pvt_data_frame *pvt_data)
 {
-	LOG_DBG("Tracked satellites: %d, fix valid: %s, insuf. time window: %s",
+	LOG_DBG("Tracked satellites: %d, fix valid: %s, insuf. time window: %s, "
+		"deadline missed: %s",
 		method_gnss_tracked_satellites(pvt_data),
 		pvt_data->flags & NRF_MODEM_GNSS_PVT_FLAG_FIX_VALID ? "true" : "false",
 		pvt_data->flags & NRF_MODEM_GNSS_PVT_FLAG_NOT_ENOUGH_WINDOW_TIME ?
+		"true" : "false",
+		pvt_data->flags & NRF_MODEM_GNSS_PVT_FLAG_DEADLINE_MISSED ?
 		"true" : "false");
 
 	/* Print details for each satellite */

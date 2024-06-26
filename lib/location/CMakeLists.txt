@@ -9,6 +9,7 @@ zephyr_library_sources(location.c)
 zephyr_library_sources(location_core.c)
 zephyr_library_sources(location_utils.c)
 zephyr_library_sources_ifdef(CONFIG_LOCATION_METHOD_GNSS method_gnss.c)
+zephyr_library_sources_ifdef(CONFIG_LOCATION_METHOD_GNSS mcc_location_table.c)
 zephyr_library_sources_ifdef(CONFIG_LOCATION_METHOD_WIFI scan_wifi.c)
 
 if(CONFIG_LOCATION_METHOD_CELLULAR OR CONFIG_LOCATION_METHOD_GNSS)
