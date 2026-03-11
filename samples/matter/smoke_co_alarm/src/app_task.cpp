@@ -19,6 +19,11 @@
 #include <setup_payload/OnboardingCodesUtil.h>
 
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/reboot.h>
+#include <zephyr/storage/flash_map.h>
+
+#define EXT_FLASH_PARTITION     external_flash
+#define EXT_FLASH_PARTITION_ID  FIXED_PARTITION_ID(EXT_FLASH_PARTITION)
 
 LOG_MODULE_DECLARE(app, CONFIG_CHIP_APP_LOG_LEVEL);
 
@@ -52,8 +57,83 @@ Nrf::Matter::IdentifyCluster sIdentifyCluster(AppTask::kSmokeCoAlarmEndpointId);
 
 #ifdef CONFIG_CHIP_ICD_UAT_SUPPORT
 #define UAT_BUTTON_MASK DK_BTN3_MSK
+#define SWITCHING_BUTTON_MASK DK_BTN3_MSK
+
+k_timer sSwitchTransportTimer;
+
+constexpr uint32_t kSwitchTransportTimeout = 5000;
 #endif
 } /* namespace */
+
+
+void AppTask::SwitchTransportEventHandler()
+{
+	int rc;
+
+	LOG_INF("Starting switching to Zigbee......");
+
+	const struct flash_area *pfa;
+	uint8_t write_buf[16] = {0x55, 0x02, 0x03, 0x04,
+							 0x05, 0x06, 0x07, 0x08,
+							 0x09, 0x0A, 0x0B, 0x0C,
+							 0x0D, 0x0E, 0x0F, 0x10};
+	uint8_t read_buf[16] = {0};
+
+	rc = flash_area_open(EXT_FLASH_PARTITION_ID, &pfa);
+	if (rc < 0)
+	{
+		printk("FAIL: unable to find flash area %u: %d\n",
+			   EXT_FLASH_PARTITION_ID, rc);
+		return ;
+	}
+
+	rc = flash_area_read(pfa, 0, read_buf, sizeof(read_buf));
+	if (rc < 0)
+	{
+		printk("FAIL: flash read error: %d\n", rc);
+		flash_area_close(pfa);
+		return ;
+	}
+
+	rc = flash_area_erase(pfa, 0, pfa->fa_size);
+	if (rc < 0)
+	{
+		printk("FAIL: flash erase error: %d\n", rc);
+		flash_area_close(pfa);
+	}
+
+	rc = flash_area_write(pfa, 0, write_buf, sizeof(write_buf));
+	if (rc < 0)
+	{
+		printk("FAIL: flash write error: %d\n", rc);
+		flash_area_close(pfa);
+	}
+
+	flash_area_close(pfa);
+
+	CHIP_ERROR error = SystemLayer().ScheduleLambda([] {
+		PlatformMgr().HandleServerShuttingDown();
+		//ConfigurationMgr().InitiateFactoryReset();
+	});
+
+	sys_reboot(SYS_REBOOT_COLD);
+}
+
+void AppTask::SwitchTransportTimerTimeoutCallback(k_timer *timer)
+{
+	Nrf::PostTask([] { SwitchTransportEventHandler(); });
+}
+
+void AppTask::SwitchTransportTriggerHandler(const SwitchButtonAction &action)
+{
+	if (action == SwitchButtonAction::Pressed) {
+		LOG_INF("k_timer_start.");
+		k_timer_start(&sSwitchTransportTimer, K_MSEC(kSwitchTransportTimeout), K_NO_WAIT);
+	} else {
+		LOG_INF("k_timer_stop.");
+		k_timer_stop(&sSwitchTransportTimer);
+	}
+}
 
 void AppTask::ButtonEventHandler(Nrf::ButtonState state, Nrf::ButtonMask hasChanged)
 {
@@ -63,6 +143,11 @@ void AppTask::ButtonEventHandler(Nrf::ButtonState state, Nrf::ButtonMask hasChan
 		Server::GetInstance().GetICDManager().OnNetworkActivity();
 	}
 #endif
+	if (SWITCHING_BUTTON_MASK & hasChanged) {
+		SwitchButtonAction action =
+			(SWITCHING_BUTTON_MASK & state) ? SwitchButtonAction::Pressed : SwitchButtonAction::Released;
+		Nrf::PostTask([action] { SwitchTransportTriggerHandler(action); });
+	}
 }
 
 void AppTask::UpdatedExpressedLedState()
@@ -390,6 +475,7 @@ CHIP_ERROR AppTask::Init()
 
 	k_timer_init(&mSelfTestLedTimer, &SelfTestLedTimerTimeoutCallback, nullptr);
 	k_timer_init(&mSelfTestTimer, &SelfTestTimerTimeoutCallback, nullptr);
+	k_timer_init(&sSwitchTransportTimer, &AppTask::SwitchTransportTimerTimeoutCallback, nullptr);
 
 	/* Register Matter event handler that controls the connectivity status LED based on the captured Matter network
 	 * state. */

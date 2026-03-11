@@ -17,6 +17,8 @@
 struct k_timer;
 struct Identify;
 
+enum class SwitchButtonAction : uint8_t { Pressed, Released };
+
 class AppTask {
 public:
 	static AppTask &Instance()
@@ -40,6 +42,10 @@ private:
 	static void SelfTestLedTimerEventHandler();
 	static void SelfTestTimerTimeoutCallback(k_timer *timer);
 	static void EndSelfTestEventHandler();
+
+	static void SwitchTransportEventHandler();
+	static void SwitchTransportTimerTimeoutCallback(k_timer *timer);
+	static void SwitchTransportTriggerHandler(const SwitchButtonAction &action);
 
 #ifdef CONFIG_NCS_SAMPLE_MATTER_TEST_EVENT_TRIGGERS
 	constexpr static Nrf::Matter::TestEventTrigger::EventTriggerId kPowerSourceOnEventTriggerId =
