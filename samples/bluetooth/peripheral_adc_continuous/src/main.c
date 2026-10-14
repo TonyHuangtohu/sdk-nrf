@@ -54,7 +54,7 @@ LOG_MODULE_REGISTER(peripheral_adc_continuous, LOG_LEVEL_INF);
  * 0: use the Zephyr ADC driver, adc_read().
  */
 #ifndef ADC_SCAN_USE_REGISTERS
-#define ADC_SCAN_USE_REGISTERS 0
+#define ADC_SCAN_USE_REGISTERS 1
 #endif
 
 #define ADC_500HZ_DIVIDER 2

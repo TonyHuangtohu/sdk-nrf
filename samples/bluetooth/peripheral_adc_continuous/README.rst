@@ -57,7 +57,11 @@ To build the driver variant without editing the source:
 .. code-block:: console
 
    west build -b nrf54l15dk/nrf54l15/cpuapp -d build_54l15 -p -- \
-     -DEXTRA_CFLAGS=-DADC_SCAN_USE_REGISTERS=0
+     -Dperipheral_adc_continuous_EXTRA_CFLAGS=-DADC_SCAN_USE_REGISTERS=0
+
+The image name prefix is required. This sample builds under sysbuild, and a
+plain ``-DEXTRA_CFLAGS=`` is consumed by sysbuild without reaching the
+application, which silently builds the default variant instead.
 
 The register values match what the Zephyr driver programs for the board
 overlay (verified by reading the registers back on hardware):
@@ -80,28 +84,44 @@ which the 14-bit NUS record cannot carry.
 Each wait for an event is bounded. If the SAADC does not respond, the scan stops
 the SAADC and returns ``-ETIMEDOUT`` instead of blocking forever.
 
-Measured on ``nrf54l15dk/nrf54l15/cpuapp`` at 128 MHz over 5000 scans:
+Measured on ``nrf54l15dk/nrf54l15/cpuapp`` at 128 MHz, averaged over 5000
+scans, with a debugger attached and while advertising only:
 
-=====================  ===========  ===========  ===========
-``read_adc_scan()``    Average      Minimum      Maximum
-=====================  ===========  ===========  ===========
-Zephyr driver          59.8 us      45.8 us      134 us
-Register access        57.8 us      57.6 us      122 us
-=====================  ===========  ===========  ===========
+=====================  ===========  ===================
+``read_adc_scan()``    Elapsed      CPU clock running
+=====================  ===========  ===================
+Zephyr driver          106 us       59.7 us
+Register access        57.4 us      57.4 us
+=====================  ===========  ===================
 
-On average the two variants are close. The register variant mainly gives a
-more consistent scan time. Most of the time is spent in the SAADC itself:
-four channels with a 10 us acquisition time each. A shorter
-``SAADC_REG_TACQ_10US`` makes a scan faster. Only shorten it if the source
-impedance of your inputs allows it.
+Elapsed time is taken from the GRTC system counter, which runs independently
+of the CPU. The second column is taken from the Cortex-M33 DWT cycle counter,
+which only advances while the CPU clock runs, so the difference between the
+two is time the CPU spent asleep. The DWT counter is not per-thread, so cycles
+spent in other threads during a scan are still counted in it.
+
+The register variant polls, so the CPU never sleeps during a scan and both
+columns agree. The driver variant blocks on a semaphore, so for about 46 us of
+each scan the CPU can idle or run other threads, but a scan takes nearly twice
+as long to complete. Measure the column that matters for your application:
+the first for sampling latency, the second for CPU load.
+
+The register variant is also the more predictable of the two. Its per-scan
+elapsed time stayed within 1 us of the average, while the driver variant
+ranged from about 88 us upward.
+
+Most of the time is spent in the SAADC itself: four channels with a 10 us
+acquisition time each. A shorter ``SAADC_REG_TACQ_10US`` makes a scan faster.
+Only shorten it if the source impedance of your inputs allows it.
 
 Enabling and disabling the SAADC around every scan costs about 11 us. This is
 the difference between the register variant as it is and the same code with
 the SAADC left enabled between scans, which measured 46.5 us on average. Both
 variants pay this cost.
 
-The register variant busy-waits during the scan (about 6 % CPU at 1 kHz),
-while the driver variant lets other threads run during the conversion.
+At the 1 kHz scan rate of this sample, the second column works out to about
+6 % of the CPU for either variant, except that for the register variant all of
+it is a busy-wait loop.
 
 Sampling schedule
 =================
