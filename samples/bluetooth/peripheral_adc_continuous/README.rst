@@ -91,10 +91,14 @@ Register access        57.8 us      57.6 us      122 us
 
 On average the two variants are close. The register variant mainly gives a
 more consistent scan time. Most of the time is spent in the SAADC itself:
-about 11 us from ``START`` to ``STARTED`` after the SAADC is enabled, plus four
-channels with a 10 us acquisition time each. A shorter ``SAADC_REG_TACQ_10US``
-makes a scan faster. Only shorten it if the source impedance of your inputs
-allows it.
+four channels with a 10 us acquisition time each. A shorter
+``SAADC_REG_TACQ_10US`` makes a scan faster. Only shorten it if the source
+impedance of your inputs allows it.
+
+Enabling and disabling the SAADC around every scan costs about 11 us. This is
+the difference between the register variant as it is and the same code with
+the SAADC left enabled between scans, which measured 46.5 us on average. Both
+variants pay this cost.
 
 The register variant busy-waits during the scan (about 6 % CPU at 1 kHz),
 while the driver variant lets other threads run during the conversion.
